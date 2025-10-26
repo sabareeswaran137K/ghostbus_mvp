@@ -1,0 +1,14 @@
+### Root endpoint (welcome)
+GET http://127.0.0.1:8000/
+
+### Health check
+GET http://127.0.0.1:8000/health
+
+### All buses
+GET http://127.0.0.1:8000/buses
+
+### Single bus - B101
+GET http://127.0.0.1:8000/buses/B101
+
+### Single bus - B102
+GET http://127.0.0.1:8000/buses/B102

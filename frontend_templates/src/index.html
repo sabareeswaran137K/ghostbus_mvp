@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GhostBus India Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <style>
+    body { margin: 0; padding: 0; display: flex; height: 100vh; }
+    #sidebar {
+      width: 300px;
+      background: #f8f9fa;
+      padding: 10px;
+      border-right: 2px solid #ccc;
+      overflow-y: auto;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+    }
+    #map { flex: 1; }
+    h2 { margin-top: 0; font-size: 18px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 6px; border-bottom: 1px solid #ddd; text-align: left; }
+    tr:hover { background: #f1f1f1; }
+    .status-active { color: green; font-weight: bold; }
+    .status-ghost { color: red; font-weight: bold; }
+    .legend { background: white; padding: 8px; line-height: 1.5; font-size: 14px; }
+    .legend span { display: inline-block; width: 12px; height: 12px; margin-right: 5px; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <h2>🚌 Bus List</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Speed</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="bus-list"></tbody>
+    </table>
+  </div>
+
+  <div id="map"></div>
+
+  <script>
+    // Initialize map - centered on India
+    var map = L.map("map").setView([22.5, 79], 5); // India center
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Markers storage
+    var markers = {};
+
+    async function fetchBuses() {
+      try {
+        const res = await fetch("http://127.0.0.1:8000/buses");
+        const data = await res.json();
+
+        // Update map markers
+        data.buses.forEach(bus => {
+          const { id, lat, lon, route, speed, is_ghost } = bus;
+          const color = is_ghost ? "red" : "green";
+
+          const markerHtml = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
+              <circle cx="12" cy="12" r="10" fill="${color}" stroke="black" stroke-width="2"/>
+            </svg>
+          `;
+          const icon = L.divIcon({
+            className: "",
+            html: markerHtml,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+          });
+
+          if (markers[id]) {
+            markers[id].setLatLng([lat, lon]);
+            markers[id].setIcon(icon);
+          } else {
+            markers[id] = L.marker([lat, lon], { icon }).addTo(map)
+              .bindPopup(`<b>${id}</b><br>Route: ${route}<br>Speed: ${speed} km/h<br>Status: ${is_ghost ? "🚨 Ghost" : "✅ Active"}`);
+          }
+        });
+
+        // Update sidebar table
+        const tbody = document.getElementById("bus-list");
+        tbody.innerHTML = "";
+        data.buses.forEach(bus => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${bus.id}</td>
+            <td>${bus.speed} km/h</td>
+            <td class="${bus.is_ghost ? "status-ghost" : "status-active"}">
+              ${bus.is_ghost ? "Ghost" : "Active"}
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+
+      } catch (err) {
+        console.error("Error fetching buses:", err);
+      }
+    }
+
+    // Refresh every 3 seconds
+    setInterval(fetchBuses, 3000);
+    fetchBuses();
+
+    // Legend
+    var legend = L.control({ position: "bottomright" });
+    legend.onAdd = function () {
+      var div = L.DomUtil.create("div", "legend");
+      div.innerHTML = `
+        <b>Bus Status</b><br>
+        <span style="background:green"></span> Active<br>
+        <span style="background:red"></span> Ghost
+      `;
+      return div;
+    };
+    legend.addTo(map);
+  </script>
+</body>
+</html>
